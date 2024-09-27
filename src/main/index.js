@@ -1,5 +1,10 @@
 
-const { app, screen, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
+const { getSettingData } = require('./lib/utils')
+const _logger = require('./lib/logger')
+const logger = _logger.scope('app')
+
+const setting = getSettingData()
 
 //获取单例锁
 const gotTheLock = app.requestSingleInstanceLock()
@@ -7,57 +12,55 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
 } else {
+  logger.info('app start...')
+  const childApp = require("./lib/childApp")
+  childApp.start()
   const { mainWindowIpcStart } = require("./lib/ipcMain")
+  const { checkUpdate } = require("./lib/checkUpdater")
   const path = require('path');
   global.appDirname = __dirname;
 
   app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 
   let mainWindow;
-  function createWindow () {
-
-    // 全屏覆盖窗口，普通全屏挡不住底部状态栏
-    // let size = screen.getPrimaryDisplay().workAreaSize
-    // let fullWidth = size.width;
-    // let fullHeight = size.height;
+  function createWindow() {
 
     Menu.setApplicationMenu(null)
     const win = new BrowserWindow({
-      // fullWidth: 1580,
-      // fullHeight: 888,
-      //resizable: false,
-      //useContentSize: true,
-      /* transparent: true, */
       icon: path.resolve(__dirname, "./icon/logo.png"),
-      // frame: false,  //是否显示标题栏，如果要全屏，取消注释本行代码
-      // fullscreen: true, //是否全屏，如果要全屏，取消注释本行代码
+      frame: true,
       show: false,
       webPreferences: {
-        webSecurity: false, 
+        webSecurity: false,
         nodeIntegration: true,
         contextIsolation: false,
         webviewTag: true
       }
     })
-    
+
     // 最大化，如果要全屏，注释本行代码
-    win.maximize(); 
-    // 区分环境加载
+    win.maximize();
     if (app.isPackaged) {
-      win.loadURL(`${process.env.APP_BASE_HOST}/merchant?v=${new Date().getTime()}`)
+      win.loadURL(`${setting.host}/bridge?v=${new Date().getTime()}`)
     } else {
-      win.loadURL(`${process.env.APP_BASE_HOST}/merchant?v=${new Date().getTime()}`)
+      win.loadURL(`http://127.0.0.1:9090/bridge?v=${new Date().getTime()}`)
       win.webContents.openDevTools()
     }
 
     win.on('closed', () => { mainWindow = null; })
     win.on('ready-to-show', () => { win.show() })
+
+    win.webContents.on("did-finish-load", () => {
+      checkUpdate();
+    });
     return win
   }
+
 
   app.on("ready", function () {
     mainWindow = new createWindow();
     mainWindowIpcStart(mainWindow)
+    logger.info('app ready...')
   })
 
   app.on('second-instance', (event, commandLine, workingDirectory) => {
@@ -68,7 +71,17 @@ if (!gotTheLock) {
     }
   })
 
+  app.on('window-all-closed', (e) => {
+    e.preventDefault()
+    logger.info('app before-quit...')
+    childApp.close().then(() => {
+      logger.info('childApp closed...')
+      app.quit()
+    })
+  });
+
   app.on('quit', () => {
+    logger.info('app quit...')
     app.releaseSingleInstanceLock();//释放所有的单例锁
   });
 

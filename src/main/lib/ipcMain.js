@@ -1,7 +1,9 @@
-const { app, ipcMain, BrowserWindow, session, Notification, shell, DownloadItem, dialog } = require('electron');
+const { app, ipcMain } = require('electron');
+
+const { getSettingData, setSettingData, getMacAddr } = require('./utils')
+const { openPrintWindow, startPrint } = require('./print')
 
 const mainWindowIpcStart = function (win) {
-  const { weightPort } = require("./weightPort")
 
   // 打开调试
   ipcMain.on("toggle_dev_tools", function (event, arg) {
@@ -32,40 +34,39 @@ const mainWindowIpcStart = function (win) {
   ipcMain.on("close", function () {
     cacheDownItemClose()
     win.close();
-    weightPort.close()
   })
 
-
-  // 获取重量
-  ipcMain.handle("getWeight", function (e, data) {
-    const weight = weightPort.getWeight()
-    return weight
+  // 获取配置
+  ipcMain.handle("getSetting", function (e, data) {
+    return getSettingData();
   })
 
-  // 创建用于处理打印请求的窗口
-  ipcMain.handle('printData', async (event, printData) => {
-    // 创建一个新的窗口用于加载打印模板
-    const printWindow = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        webSecurity: false,
-        nodeIntegration: true,
-        contextIsolation: false,
-        webviewTag: true
-      },
-    });
+  // 设置串口
+  ipcMain.handle("setPort", function (e, portPath) {
+    const setting = getSettingData();
+    setting.portPath = portPath
+    setSettingData(setting)
+    // 重启应用
+    app.relaunch()
+    app.exit(0)
+  })
 
-    // 加载HTML模板
-    printWindow.loadURL(`${process.env.APP_BASE_HOST}/print/bill.html?v=${new Date().getTime()}`).then(() => {
-      printWindow.webContents.executeJavaScript(`window.printData = ${JSON.stringify(printData)};`).then(() => {
-        printWindow.webContents.print({ silent: true, printBackground: true }, (success, errorType) => {
-          if (!success) {
-            console.error('Print failed:', errorType);
-          }
-          printWindow.close();
-        });
-      });
-    });
+  // 获取MAC地址
+  ipcMain.handle("getMacAddr", function (e, data) {
+    return getMacAddr();
+  })
+
+  // 获取系统打印机详情
+  ipcMain.handle("getPrinters", async (event) => {
+    return await event.sender.getPrintersAsync();
+  });
+  // 创建打印界面
+  ipcMain.handle("openPrintWindow", (e, url) => {
+    openPrintWindow(url)
+  });
+  // 开始打印
+  ipcMain.on("startPrint", (e) => {
+    startPrint()
   });
 }
 

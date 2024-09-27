@@ -1,12 +1,11 @@
 const koffi = require('koffi')
-const path = require('path')
+const { getExtraPath } = require('./utils')
+const _logger = require('./logger')
+const logger = _logger.scope('sensorDll')
 
-// const dllPath = path.join(Ps.getExtraResourcesDir(), "dll", 'SensorDll.dll')
-let dllPath = path.join(__dirname, '../../../build/extraResources/dll/SensorDll.dll')
-if (!(process.env.NODE_ENV === 'development')) {
-  dllPath = path.join(process.cwd(), 'resources/build/extraResources/dll/SensorDll.dll')
-}
-console.log(dllPath)
+const dllPath = getExtraPath('SensorDll.dll')
+logger.info('sensorDll:', dllPath)
+
 let errorLog = '未知错误'
 let open = () => errorLog
 let close = () => errorLog
@@ -19,10 +18,10 @@ try {
   getWeight = SensorDll.func('__stdcall', '__GetWeight', 'str');
 
   open('COM2', 9600)
-  console.log('串口已打开')
+  logger.info('sensorDll open success!')
 } catch (error) {
   errorLog = error.toString()
-  console.log(error)
+  logger.error('sensorDll open fail:', error)
 }
 
 module.exports = {

@@ -1,0 +1,6 @@
+{
+  "host": "https://ndp.srcc.org.cn",
+  "portPath": "COM2",
+  "baudRate": 9600,
+  "portList": []
+}
