@@ -14,9 +14,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+logs
 
 package-lock.json
 yarn.lock
+
+# local java file
+extra/software
 
 # Editor directories and files
 .idea
